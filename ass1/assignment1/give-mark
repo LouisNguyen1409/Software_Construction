@@ -1,0 +1,227 @@
+#!/bin/dash
+
+# Include helper functions file
+. ./helper_function
+
+# Check if give directory exists
+check_give "give-mark"
+
+# Check if the number of arguments is correct
+check_args "$#" 1 "give-mark"
+
+## Check assignment parameter
+assignment="$1"
+# Check if assignment follow the correct format
+check_assignment "$assignment" "give-mark"
+# Check if assignment exists
+check_assignment_found "$assignment" "give-mark"
+
+# Find the automarking file
+automarking_file=""
+for file_dir in ".give/$assignment"/*; do
+    file=$(basename "$file_dir")
+	if [ "$file" = "_AUTOMARKING" ]; then
+        automarking_file="$file_dir"
+    fi
+done
+
+# Find the solution file
+for solution_files in ".give/$assignment/_SOLUTION"/*; do
+    solution_file="$solution_files"
+    break
+done
+
+for student in ".give/$assignment"/*; do
+    # Skip if the file is _SOLUTION or _AUTOMARKING or _AUTOTESTS
+    if [ "$student" = ".give/$assignment/_SOLUTION" ] || [ "$student" = ".give/$assignment/_AUTOMARKING" ] || [ "$student" = ".give/$assignment/_AUTOTESTS" ]; then
+        continue
+    fi
+
+    student_zid=$(basename "$student")
+
+    # Find the latest submission
+    num_submit=1
+    submission="$student/$num_submit"
+    while [ -e "$submission" ]; do
+        num_submit=$((num_submit + 1))
+        submission="$student/$num_submit"
+    done
+    final_submission=$((num_submit - 1))
+
+    filename=""
+    for file in "$student/$final_submission"/*; do
+        file_name=$(basename "$file")
+        if [ "$file_name" != "@TIMESTAMP" ]; then
+            filename="$file"
+            # Get the size of the file
+            size=$(wc -c "$file" | cut -d' ' -f1,1)
+        else
+            # Get the time of the submission
+            time=$(cat "$file")
+        fi
+    done
+    file_name=$(basename "$filename")
+    echo "*** Student $student_zid - submission $final_submission: $file_name $size bytes @ $time"
+
+    passed=0
+    failed=0
+    total_marks=0
+    actual_marks=0
+    while IFS= read -r line || [ -n "$line" ]; do
+        is_pass=0
+        if check_comment_and_empty "$line" "give-autotest"; then
+            continue
+        fi
+        IFS='|' read -r label arguments stdin options mark<< eof
+        $line
+eof
+
+        stdin_file="stdin_file"
+        echo "$stdin" > "$stdin_file"
+        label=$(echo "$label" | sed 's/^ *//g')
+
+        # shellcheck disable=SC2086
+        expected_stdout=$(./"$solution_file" $arguments < "$stdin_file" 2>/dev/null; echo -n " ")
+        # shellcheck disable=SC2086
+        expected_stderr=$(./"$solution_file" $arguments < "$stdin_file" 2>&1 1>/dev/null; echo -n " ")
+
+        # shellcheck disable=SC2086
+        actual_stdout=$(./"$filename" $arguments < "$stdin_file" 2>/dev/null; echo -n " ")
+        # shellcheck disable=SC2086
+        actual_stderr=$(./"$filename" $arguments < "$stdin_file" 2>&1 1>/dev/null; echo -n " ")
+
+        # shellcheck disable=SC2086
+        ./"$solution_file" $arguments < "$stdin_file" > output.log 2>&1
+        expected_exit=$?
+        # shellcheck disable=SC2086
+        ./"$filename" $arguments < "$stdin_file" > output.log 2>&1
+        actual_exit=$?
+        rm output.log
+
+        actual_size=$(echo "$actual_stdout" | wc -c | cut -d' ' -f1,1)
+        actual_size=$((actual_size-2))
+        expected_size=$(echo "$expected_stdout" | wc -c | cut -d' ' -f1,1)
+        expected_size=$((expected_size-2))
+
+        actual_size_err=$(echo "$actual_stderr" | wc -c | cut -d' ' -f1,1)
+        actual_size_err=$((actual_size_err-2))
+        expected_size_err=$(echo "$expected_stderr" | wc -c | cut -d' ' -f1,1)
+        expected_size_err=$((expected_size_err-2))
+
+        line_expected=$(echo "$expected_stdout" | wc -l)
+        extra_newline=$((line_expected+1))
+        missing_newline=$((line_expected-1))
+        line_actual=$(echo "$actual_stdout" | wc -l)
+
+        line_expected_err=$(echo "$expected_stderr" | wc -l)
+        extra_newline_err=$((line_expected_err+1))
+        missing_newline_err=$((line_expected_err-1))
+        line_actual_err=$(echo "$actual_stderr" | wc -l)
+
+        # Check if options are present
+        if echo "$options" | grep -qE 'c'; then
+            actual_stdout=$(echo "$actual_stdout" | sed 's/.*/\L&/')
+            expected_stdout=$(echo "$expected_stdout" | sed 's/.*/\L&/')
+        fi
+
+        if echo "$options" | grep -qE 'w'; then
+            actual_stdout=$(echo "$actual_stdout" | sed 's/[ \t]//g')
+            expected_stdout=$(echo "$expected_stdout" | sed 's/[ \t]//g')
+        fi
+
+        if echo "$options" | grep -qE 'b'; then
+            actual_stdout=$(echo "$actual_stdout" | sed '/^$/d')
+            expected_stdout=$(echo "$expected_stdout" | sed '/^$/d')
+        fi
+
+        if echo "$options" | grep -qE 'd'; then
+            actual_stdout=$(echo "$actual_stdout" | sed 's/[^0-9\n]//g')
+            expected_stdout=$(echo "$expected_stdout" | sed 's/[^0-9\n]//g')
+        fi
+
+
+        if ! [ "$actual_stdout" = "$expected_stdout" ]; then
+            echo "* Test $label failed."
+            is_pass=1
+            failed=$((failed+1))
+            if [ "$expected_stdout" = " " ] ; then
+                # If expected stdout is empty
+                echo "--- No stdout expected, these $actual_size bytes produced:"
+                actual_stdout="${actual_stdout%?}"
+                echo "$actual_stdout"
+            elif [ "$actual_stdout" = " " ]; then
+                # If actual stdout is empty
+                echo "--- No stdout produced, these $expected_size bytes expected:"
+                expected_stdout="${expected_stdout%?}"
+                echo "$expected_stdout"
+            elif [ "$line_actual" = "$extra_newline" ]; then
+                # If extra newline at the end of actual stdout
+                echo "Extra newline at end of stdout"
+            elif [ "$line_actual" = "$missing_newline" ]; then
+                # If missing newline at the end of actual stdout
+                echo "Missing newline at end of stdout"
+            else
+                # If actual stdout is incorrect
+                echo "--- Incorrect stdout of $actual_size bytes:"
+                actual_stdout="${actual_stdout%?}"
+                echo "$actual_stdout"
+                echo "--- Correct stdout is these $expected_size bytes:"
+                expected_stdout="${expected_stdout%?}"
+                echo "$expected_stdout"
+            fi
+        fi
+
+        if ! [ "$expected_stderr" = "$actual_stderr" ]; then
+            if [ "$is_pass" = 0 ]; then
+                echo "* Test $label failed."
+                failed=$((failed+1))
+            fi
+            is_pass=1
+            if [ "$expected_stderr" = " " ] ; then
+                # If expected stderr is empty
+                echo "--- No stderr expected, these $actual_size_err bytes produced:"
+                actual_stderr="${actual_stderr%?}"
+                echo "$actual_stderr"
+            elif [ "$actual_stderr" = " " ]; then
+                # If actual stderr is empty
+                echo "--- No stderr produced, these $expected_size_err bytes expected:"
+                expected_stderr="${expected_stderr%?}"
+                echo "$expected_stderr"
+            elif [ "$line_actual_err" = "$extra_newline_err" ]; then
+                # If extra newline at the end of actual stderr
+                echo "Extra newline at end of stderr"
+            elif [ "$line_actual_err" = "$missing_newline_err" ]; then
+                # If missing newline at the end of actual stderr
+                echo "Missing newline at end of stderr"
+            else
+                # If actual stderr is incorrect
+                echo "--- Incorrect stderr of $actual_size_err bytes:"
+                actual_stderr="${actual_stderr%?}"
+                echo "$actual_stderr"
+                echo "--- Correct stderr is these $expected_size_err bytes:"
+                expected_stderr="${expected_stderr%?}"
+                echo "$expected_stderr"
+            fi
+
+        fi
+
+        if [ "$is_pass" = 0 ]; then
+            echo "* Test $label passed ($mark marks)."
+            passed=$((passed+1))
+            actual_marks=$((actual_marks + mark))
+        fi
+
+        if ! [ "$expected_exit" = "$actual_exit"  ]; then
+            echo "Exit status of $actual_exit incorrect should be $expected_exit"
+        fi
+        total_marks=$((total_marks + mark))
+    done < "$automarking_file"
+
+    if [ "$total_marks" -eq 0 ]; then
+        echo "No automarking"
+        continue
+    else
+        echo "** $passed tests passed, $failed tests failed - mark: $actual_marks/$total_marks"
+    fi
+done
+

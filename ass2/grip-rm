@@ -1,0 +1,92 @@
+#!/usr/bin/env python3
+
+import os
+import sys
+import filecmp
+import json
+
+# Check if the .grip directory exists
+if not os.path.isdir('.grip'):
+	print("grip-rm: error: grip repository directory .grip not found", file=sys.stderr)
+	sys.exit(1)
+
+force = False
+cached = False
+files_to_remove = []
+
+# Load the status file
+status = {}
+status_path = os.path.join('.grip', 'status.json')
+if os.path.exists(status_path):
+	with open(status_path, 'r') as f:
+		status = json.load(f)
+
+# Setup the arguments
+for arg in sys.argv[1:]:
+	if arg == '--force':
+		force = True
+	elif arg == '--cached':
+		cached = True
+	else:
+		files_to_remove.append(arg)
+
+# Check if the user has provided any files to remove
+if not files_to_remove:
+	print("usage: grip-rm [--force] [--cached] <filenames>", file=sys.stderr)
+	sys.exit(1)
+
+for filename in files_to_remove:
+	index_path = os.path.join('.grip', 'index', filename)
+	working_path = filename
+	commits_dir = os.path.join('.grip', 'commits')
+	subdirs = sorted([d for d in os.listdir(commits_dir) if os.path.isdir(os.path.join(commits_dir, d))])
+	last_commit = subdirs[-1]
+	repo_path = os.path.join('.grip', 'commits', str(last_commit), filename)
+
+	in_index = os.path.exists(index_path)
+	in_working = os.path.exists(working_path)
+
+	# Check if the file is in the index
+	if not in_index:
+		print(f"grip-rm: error: '{filename}' is not in the grip repository", file=sys.stderr)
+		sys.exit(1)
+
+	# Case 1: File is in the indexm in the working directory and not cached, and not forced
+	if in_index and in_working and not cached and not force:
+		if not filecmp.cmp(index_path, working_path) and not filecmp.cmp(index_path, repo_path):
+			print(f"grip-rm: error: '{filename}' in index is different to both the working file and the repository", file=sys.stderr)
+			sys.exit(1)
+		elif not filecmp.cmp(index_path, working_path):
+			print(f"grip-rm: error: '{filename}' in the repository is different to the working file", file=sys.stderr)
+			sys.exit(1)
+		else:
+			if status[filename] == 'changes staged for commit' or status[filename] == 'added to index':
+				print(f"grip-rm: error: '{filename}' has staged changes in the index", file=sys.stderr)
+				sys.exit(1)
+			else:
+				os.remove(index_path)
+				os.remove(working_path)
+				status[filename] = 'deleted from index'
+
+	# Case 2: File is in the index, in the working directory and not cached, and forced
+	if in_index and in_working and cached and not force:
+		if not filecmp.cmp(index_path, working_path) and not filecmp.cmp(index_path, repo_path):
+			print(f"grip-rm: error: '{filename}' in index is different to both the working file and the repository", file=sys.stderr)
+			sys.exit(1)
+		else:
+			os.remove(index_path)
+			status[filename] = 'deleted from index'
+
+	# Case 3: File is in the index, in the working directory and not cached, and forced
+	if in_index and in_working and not cached and force:
+		os.remove(index_path)
+		os.remove(working_path)
+		status[filename] = 'deleted from index'
+
+	# Case 4: File is in the index, in the working directory and cached, and forced
+	if in_index and in_working and cached and force:
+		os.remove(index_path)
+		status[filename] = 'deleted from index'
+
+	with open(status_path, 'w') as f:
+		json.dump(status, f, indent=4)

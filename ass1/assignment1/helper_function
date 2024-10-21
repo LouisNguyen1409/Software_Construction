@@ -1,0 +1,317 @@
+#!/bin/dash
+
+# This script is a helper function for the main script.
+
+# Variables
+test_labels=""
+
+# Check if .given file exists
+make_give() {
+    if [ ! -e ".give" ]; then
+    mkdir ".give"
+    echo "directory .give created"
+    fi
+}
+
+# Check if .give directory exists
+check_give() {
+    program_name="$1"
+    if [ ! -e ".give" ]; then
+        echo "$program_name: give directory .give not found" 1>&2
+        exit 1
+    fi
+}
+
+# Check if there are enough number of arguments
+check_args() {
+    args="$1"
+    num_args="$2"
+    program_name="$3"
+    if [ "$args" -ne "$num_args" ]; then
+        if [ "$program_name" = "give-add" ]; then
+            echo "usage: $program_name <assignment> <solution> <autotests> <automarking>" 1>&2
+        elif [ "$program_name" = "give-submit" ]; then
+            echo "usage: $program_name <assignment> <zid> <filename>" 1>&2
+        elif [ "$program_name" = "give-summary" ]; then
+            echo "usage: $program_name" 1>&2
+        elif [ "$program_name" = "give-status" ]; then
+            echo "usage: $program_name <zid>" 1>&2
+        elif [ "$program_name" = "give-autotest" ]; then
+            echo "usage: $program_name <assignment> <filename>" 1>&2
+        elif [ "$program_name" = "give-mark" ]; then
+            echo "usage: $program_name <assignment>" 1>&2
+        elif [ "$program_name" = "give-rm" ]; then
+            echo "usage: $program_name <assignment>" 1>&2
+        fi
+        exit 1
+    fi
+}
+
+# Check assignment parameter
+check_assignment() {
+    assignment="$1"
+    program_name="$2"
+    if ! echo "$assignment" | grep -qE "^[a-zA-Z0-9_]*$"; then
+        echo "$program_name: invalid assignment: $assignment" 1>&2
+        exit 1
+    fi
+}
+
+# Check if assignment exists
+check_assignment_exists() {
+    assignment="$1"
+    program_name="$2"
+    if [ -e ".give/$assignment" ]; then
+        echo "$program_name: assignment $assignment already exists" 1>&2
+        exit 1
+    fi
+}
+
+# Check if assignment found
+check_assignment_found() {
+    assignment="$1"
+    program_name="$2"
+    if [ ! -e ".give/$assignment" ]; then
+        echo "$program_name: assignment $assignment not found" 1>&2
+        exit 1
+    fi
+}
+
+# Check if solution file exists
+check_file() {
+    file="$1"
+    program_name="$2"
+    if [ ! -e "$file" ]; then
+        echo "$program_name: $file: No such file or directory" 1>&2
+        exit 1
+    fi
+
+    if [ -d "$file" ]; then
+        echo "$program_name: $file: Is a directory" 1>&2
+        exit 1
+    fi
+}
+
+# Check autotest parameter
+check_comment_and_empty() {
+    line=$1
+    if echo "$line" | grep -qE '^#.*' || [ -z "$line" ]; then
+        return 0
+    fi
+    return 1
+}
+
+# Check column
+check_column() {
+    local columns
+    local line
+    line_num="$1"
+    line="$2"
+    columns=$(($3 - 1))
+    param="$4"
+    program_name="$5"
+    if ! printf "%s\n" "$line" | grep -qE '^([^|]*\|){'"$columns"'}[^|]*$'; then
+        echo "$program_name: $param:$line_num: invalid line: $line" 1>&2
+        exit 1
+    fi
+}
+
+# Check label
+check_label() {
+    line_num="$1"
+    label="$2"
+    param="$3"
+    program_name="$4"
+
+    if ! echo "$label" | grep -qE '^[a-z][a-zA-Z0-9_]*$'; then
+        echo "$program_name: $param:$line_num: invalid test label: $label" 1>&2
+        exit 1
+    fi
+
+    if echo "$test_labels" | grep -qE "$label"; then
+        echo "$program_name: $param:$line_num: repeated test label: $label" 1>&2
+        exit 1
+    fi
+
+    test_labels="$test_labels $label"
+}
+
+# Check arguments
+check_arguments() {
+    line_num="$1"
+    arguments="$2"
+    param="$3"
+    program_name="$4"
+
+    if [ -z "$arguments" ]; then
+        return
+    fi
+
+    if ! echo "$arguments" | grep -qE '^[a-zA-Z0-9_.-]*( [a-zA-Z0-9_.-]+)*$'; then
+        echo "$program_name: $param:$line_num: invalid test arguments: $arguments" 1>&2
+        exit 1
+    fi
+}
+
+# Check stdin
+check_stdin() {
+    line_num="$1"
+    stdin="$2"
+    param="$3"
+    program_name="$4"
+
+    if [ -z "$stdin" ]; then
+        return
+    fi
+
+    if echo "$stdin" | grep -qE "$(printf '\t')"; then
+        printf '%s: %s:%s: invalid test stdin: \\\\t\n' "$program_name" "$param" "$line_num" 1>&2
+        exit 1
+    fi
+    if echo "$stdin" | grep -qE '^\\$' || echo "$stdin" | grep -qE '[|]'; then
+        echo "$program_name: $param:$line_num: invalid test stdin: $stdin" >&2
+        exit 1
+    fi
+}
+
+# Check options
+check_options() {
+    line_num=$1
+    options=$2
+    param=$3
+    program_name="$4"
+
+    if [ -z "$options" ]; then
+        return
+    fi
+
+    if ! echo "$options" | grep -qE '^[bcdw]*$'; then
+        echo "$program_name: $param:$line_num: invalid test options: $options" 1>&2
+        exit 1
+    fi
+}
+
+# Check filename
+check_file_name() {
+    filename="$1"
+    program_name="$2"
+    if ! echo "$filename" | grep -qE '^[a-zA-Z0-9_./-]*$'; then
+        echo "$program_name: invalid filename: $filename" 1>&2
+        exit 1
+    fi
+}
+
+# Check autotest
+check_autotest() {
+    autotest="$1"
+    program_name="$2"
+    file="$autotest"
+    line_num=1
+    test_labels=""
+    while IFS= read -r line || [ -n "$line" ]; do
+        # Check comment and empty line
+        if check_comment_and_empty "$line" "$program_name"; then
+            line_num=$((line_num+1))
+            continue
+        fi
+
+        # Split line into columns based on '|'
+        IFS='|' read -r label arguments stdin options << eof
+        $line
+eof
+        label=$(echo "$label" | sed 's/^ *//g')
+
+        # Check there are exactly 4 columns
+        check_column "$line_num" "$line" 4 "$autotest" "$program_name"
+
+        # Check label
+        check_label "$line_num" "$label" "$autotest" "$program_name"
+
+        # Check arguments
+        check_arguments "$line_num" "$arguments" "$autotest" "$program_name"
+
+        # Check options
+        check_options "$line_num" "$options" "$autotest" "$program_name"
+
+        # Check stdin
+        check_stdin "$line_num" "$stdin" "$autotest" "$program_name"
+
+        line_num=$((line_num+1))
+    done < "$file"
+    # echo "$test_labels"
+}
+
+# Check mark
+check_mark() {
+    line_num="$1"
+    mark="$2"
+    param="$3"
+    program_name="$4"
+
+    if [ "$mark" -lt 0 ]; then
+        echo "$program_name: $param:$line_num: invalid test marks: $mark" 1>&2
+        exit 1
+    fi
+}
+
+# Check automarking
+check_automarking() {
+    automarking="$1"
+    program_name="$2"
+    file="$automarking"
+    line_num=1
+    test_labels=""
+    while IFS= read -r line || [ -n "$line" ]; do
+        if check_comment_and_empty "$line" "$program_name"; then
+            continue
+        fi
+
+        # Split line into columns based on '|'
+        IFS='|' read -r label arguments stdin options mark << eof
+        $line
+eof
+        label=$(echo "$label" | sed 's/^ *//g')
+        # Check there are exactly 4 columns
+        check_column "$line_num" "$line" 5 "$automarking" "$program_name"
+
+        # Check label
+        check_label "$line_num" "$label" "$automarking" "$program_name"
+
+        # Check arguments
+        check_arguments "$line_num" "$arguments" "$automarking" "$program_name"
+
+        # Check options
+        check_options "$line_num" "$options" "$automarking" "$program_name"
+
+        # Check stdin
+        check_stdin "$line_num" "$stdin" "$automarking" "$program_name"
+
+        # Check mark
+        check_mark "$line_num" "$mark" "$automarking" "$program_name"
+
+        line_num=$((line_num+1))
+    done < "$file"
+}
+
+# Check if zid
+check_zid() {
+    zid="$1"
+    program_name="$2"
+    if ! echo "$zid" | grep -Eq '^z[0-9]{7}$'; then
+        echo "$program_name: invalid zid: $zid" 1>&2
+        exit 1;
+    fi
+}
+
+# Get the submission
+cat_submission() {
+    assignment="$1"
+    zid="$2"
+    submission="$3"
+    for file in ".give/$assignment/$zid/$submission"/*; do
+        file_name=$(basename "$file")
+        if [ "$file_name" != "@TIMESTAMP" ]; then
+            cat "$file"
+        fi
+    done
+}

@@ -1,0 +1,195 @@
+
+
+
+2041 autotest give helper_function
+
+rm -rf .give
+./give-add project stderr.sh stderr.autotests stderr.automarking
+./give-autotest project stderr_wrong.sh
+
+
+* Test test1 passed.
+* Test test2 failed.
+--- Incorrect stdout of 2 bytes:
+2
+
+--- Correct stdout is these 2 bytes:
+1
+
+--- Incorrect stderr of 2 bytes:
+3
+
+--- Correct stderr is these 2 bytes:
+2
+
+Exit status of 1 incorrect should be 3
+* Test test3 failed.
+--- Incorrect stdout of 2 bytes:
+4
+
+--- Correct stdout is these 2 bytes:
+5
+
+Exit status of 5 incorrect should be 4
+* Test test4 failed.
+--- Incorrect stdout of 2 bytes:
+5
+
+--- Correct stdout is these 2 bytes:
+4
+
+--- Incorrect stderr of 2 bytes:
+4
+
+--- Correct stderr is these 2 bytes:
+5
+
+* Test test5 failed.
+--- Incorrect stderr of 2 bytes:
+5
+
+--- Correct stderr is these 2 bytes:
+4
+
+Exit status of 4 incorrect should be 5
+** 1 tests passed, 4 tests failed
+
+
+rm -rf .give
+./give-add project stderr.sh stderr.autotests stderr.automarking
+./give-autotest project stderr_no_newline.sh
+
+
+rm -rf .give
+./give-add project stderr.sh stderr.autotests stderr.automarking
+./give-autotest project stderr_no_newline.sh
+
+rm -rf .give
+./give-add project2 stderr.sh stderr.autotests stderr.automarking
+./give-submit project2 z5555555 stderr_wrong.sh|sed 's/@.* /@ /'
+./give-submit project2 z6666666 stderr.sh|sed 's/@.* /@ /'
+./give-submit project2 z7777777 stderr.sh|sed 's/@.* /@ /'
+./give-submit project2 z6666666 stderr_wrong.sh|sed 's/@.* /@ /'
+./give-submit project2 z5555555 stderr.sh|sed 's/@.* /@ /'
+./give-submit project2 z7777777 stderr.sh|sed 's/@.* /@ /'
+./give-submit project2 z7777777 stderr_no_newline.sh|sed 's/@.* /@ /'
+2041 give-mark project|sed 's/@.* /@ /'
+
+
+
+
+
+
+
+2041 give-add A,s.s/i}g{nment stderr.sh stderr.autotests stderr.automarking
+
+
+
+
+
+
+
+assignment project: submissions from 3 students
+assignment project2: submissions from 3 students
+
+
+
+
+rm -rf .give
+echo 'echo "Hello World"' > _solution.sh
+echo "default|||" > _autotest.autotests
+echo "default||||1" > _automark.automarking
+echo 'echo "Hello World Old"' > _filename_old.sh
+echo 'echo "Hello World"' > _filename.sh
+2041 give-add assignment1 _solution.sh _autotest.autotests _automark.automarking 1>/dev/null 2>/dev/null
+2041 give-submit assignment1 z5555555 _filename.sh 1>/dev/null 2>/dev/null
+2041 give-submit assignment1 z6666666 _filename.sh 1>/dev/null 2>/dev/null
+2041 give-submit assignment1 z7777777 _filename.sh 1>/dev/null 2>/dev/null
+2041 give-submit assignment1 z6666666 _filename.sh 1>/dev/null 2>/dev/null
+2041 give-submit assignment1 z5555555 _filename.sh 1>/dev/null 2>/dev/null
+2041 give-submit assignment1 z7777777 _filename.sh 1>/dev/null 2>/dev/null
+2041 give-submit assignment1 z7777777 _filename.sh 1>/dev/null 2>/dev/null
+2041 give-add assignment2 _solution.sh _autotest.autotests _automark.automarking 1>/dev/null 2>/dev/null
+2041 give-submit assignment2 z5555555 _filename.sh 1>/dev/null 2>/dev/null
+2041 give-submit assignment2 z6666666 _filename.sh 1>/dev/null 2>/dev/null
+2041 give-submit assignment2 z7777777 _filename.sh 1>/dev/null 2>/dev/null
+2041 give-submit assignment2 z6666666 _filename.sh 1>/dev/null 2>/dev/null
+2041 give-submit assignment2 z5555555 _filename.sh 1>/dev/null 2>/dev/null
+2041 give-submit assignment2 z7777777 _filename.sh 1>/dev/null 2>/dev/null
+2041 give-submit assignment2 z7777777 _filename.sh 1>/dev/null 2>/dev/null
+2041 give-fetch assignment2 z7777778 100
+
+usage: give-fetch <assignment> <zid> [n]
+
+
+
+./give-fetch A,s.s/i}g{nment z7777777
+give-fetch: invalid assignment: A,s.s/i}g{nment
+
+./give-fetch ba3 z7777777
+give-fetch: assignment ba3 not found
+
+./give-fetch assignment2 z777
+give-fetch: invalid zid: z777
+
+./give-fetch assignment2 z7777778
+give-fetch: submission None not found for assignment2
+
+./give-fetch assignment2 z7777777 -100
+give-fetch: submission -100 not found for assignment2
+
+
+
+
+
+rm -rf .give
+echo 'echo "Hello World"' > _solution.sh
+echo "default|||" > _autotest.autotests
+echo "default||||1" > _automark.automarking
+echo 'echo "Hello World Old"' > _filename_old.sh
+echo 'echo "Hello World"' > _filename.sh
+2041 give-add assignment1 _solution.sh _autotest.autotests _automark.automarking 1>/dev/null 2>/dev/null
+2041 give-submit assignment1 z5555555 _filename.sh 1>/dev/null 2>/dev/null
+2041 give-submit assignment1 z6666666 _filename.sh 1>/dev/null 2>/dev/null
+2041 give-submit assignment1 z7777777 _filename.sh 1>/dev/null 2>/dev/null
+2041 give-submit assignment1 z6666666 _filename.sh 1>/dev/null 2>/dev/null
+2041 give-submit assignment1 z5555555 _filename.sh 1>/dev/null 2>/dev/null
+2041 give-submit assignment1 z7777777 _filename.sh 1>/dev/null 2>/dev/null
+2041 give-submit assignment1 z7777777 _filename.sh 1>/dev/null 2>/dev/null
+2041 give-rm assignment1
+
+
+
+
+
+
+2041 give-rm assignment1
+assignment assignment1 removed
+
+2041 give-rm assignment1
+give-rm: assignment assignment1 not found
+
+2041 give-rm assignment1
+give-rm: give directory .give not found
+
+2041 give-rm
+usage: give-rm <assignment>
+
+2041 give-rm A,s.s/i}g{nment
+give-rm: invalid assignment: A,s.s/i}g{nment
+
+
+
+rm -rf .give
+./give-add test1 grep.sh grep.autotests grep.automarking
+./give-autotest test1 grep.sh
+./give-autotest test1 grep_wrong.sh
+./give-submit test1 z5555555 grep.sh|sed 's/@.* /@ /'
+./give-submit test1 z6666666 grep_wrong.sh|sed 's/@.* /@ /'
+./give-mark test1|sed 's/@.* /@ /'
+
+
+
+rm -rf .give
+./give-add project stderr.sh stderr.autotests stderr.automarking
+./give-autotest project stderr_wrong.sh

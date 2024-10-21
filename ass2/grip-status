@@ -1,0 +1,73 @@
+#!/usr/bin/env python3
+
+import os
+import sys
+import filecmp
+import json
+
+# Check if the .grip directory exists
+if not os.path.isdir('.grip'):
+	print("grip-status: error: grip repository directory .grip not found", file=sys.stderr)
+	sys.exit(1)
+
+# Load the status file
+status = {}
+status_path = os.path.join('.grip', 'status.json')
+if os.path.exists(status_path):
+	with open(status_path, 'r') as f:
+		status = json.load(f)
+
+
+files_wd = sorted(os.listdir("."))
+commits_dir = os.path.join('.grip', 'commits')
+subdirs = sorted([d for d in os.listdir(commits_dir) if os.path.isdir(os.path.join(commits_dir, d))])
+if subdirs != []:
+	last_commit = subdirs[-1]
+	files_repo = sorted(os.listdir(os.path.join(commits_dir, str(last_commit))))
+else:
+	files_repo = []
+files_index = sorted(os.listdir(os.path.join('.grip', 'index')))
+sorted_files = sorted(set(files_wd + files_repo + files_index) - {'.grip', 'message'})
+
+for filename in sorted_files:
+	if os.path.isdir(filename):
+		continue
+	if subdirs == []:
+		repo_path = ""
+	else:
+		repo_path = os.path.join('.grip', 'commits', str(last_commit), filename)
+	index_path = os.path.join('.grip', 'index', filename)
+
+	try:
+		if os.path.isfile(repo_path) or os.path.isfile(index_path):
+			# Check for file status
+			if status[filename] == 'changes staged for commit':
+				if filecmp.cmp(index_path, filename):
+					print(f"{filename} - file changed, {status[filename]}")
+				else:
+					print(f"{filename} - file changed, different changes staged for commit")
+			elif status[filename] == 'same as repo':
+				if not os.path.isfile(filename):
+					print(f"{filename} - file deleted")
+				elif filecmp.cmp(index_path, filename):
+					print(f"{filename} - {status[filename]}")
+				else:
+					print(f"{filename} - file changed, changes not staged for commit")
+			elif status[filename] == 'deleted from index':
+				if not os.path.isfile(filename):
+					print(f"{filename} - file deleted, {status[filename]}")
+				else:
+					print(f"{filename} - {status[filename]}")
+			elif status[filename] == 'added to index':
+				if not os.path.isfile(filename):
+					print(f"{filename} - {status[filename]}, file deleted")
+				elif filecmp.cmp(index_path, filename):
+					print(f"{filename} - {status[filename]}")
+				else:
+					print(f"{filename} - {status[filename]}, file changed")
+			else:
+				print(f"{filename} - {status[filename]}")
+		else:
+			print(f"{filename} - untracked")
+	except:
+		print(f"{filename} - untracked")

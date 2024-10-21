@@ -1,0 +1,53 @@
+#!/bin/dash
+
+# Include helper functions file
+. ./helper_function
+
+# Check input parameters
+check_args "$#" 4 "give-add"
+
+## Check assignment parameter
+assignment=$1
+# Check if assignment follow the correct format
+check_assignment "$assignment" "give-add"
+# Check if assignment exists
+check_assignment_exists "$assignment" "give-add"
+
+## Check solution parameter
+solution=$2
+# Check if solution follow the correct format
+if ! echo "$solution" | grep -qE '^[a-zA-Z0-9_.\-\/]*$'; then
+    echo "give-add: invalid solution: $solution" 1>&2
+    exit 1
+fi
+
+# Check .give directory exists
+make_give
+
+# Check if the solution exists and is a regular file
+check_file "$solution" "give-add"
+
+## Check autotest parameter
+autotest=$3
+# Check if autotest follow the correct format
+check_file "$autotest" "give-add"
+# Check if autotest exists and is a regular file
+check_autotest "$autotest" "give-add"
+
+## Check automarking parameter
+automarking=$4
+# Check if automarking follow the correct format
+check_file "$automarking" "give-add"
+# Check if automarking exists and is a regular file
+check_automarking "$automarking" "give-add"
+
+# Create assignment directory
+mkdir ".give/$assignment"
+mkdir ".give/$assignment/_SOLUTION"
+
+# Copy solution to assignment directory
+cp -p "$solution" ".give/$assignment/_SOLUTION/$solution"
+cp -p "$autotest" ".give/$assignment/_AUTOTESTS"
+cp -p "$automarking" ".give/$assignment/_AUTOMARKING"
+
+echo "assignment $assignment created"

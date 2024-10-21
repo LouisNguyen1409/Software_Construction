@@ -1,0 +1,53 @@
+#!/bin/dash
+
+# Include helper functions file
+. ./helper_function
+
+# Check if give directory exists
+check_give "give-summary"
+
+# Check if the number of arguments provided is correct
+check_args "$#" 0 "give-summary"
+
+# Check if the assignments directory is empty
+num_ass=0
+for ass in ".give"/*; do
+    if [ ! "$ass" = ".give/*" ];then
+        num_ass=$((num_ass + 1))
+    fi
+done
+
+if [ $num_ass = 0 ]; then
+    echo "no assignments"
+    exit 0
+fi
+
+# no_assignments=0
+# for ass in ".give"/*; do
+#     students=0;
+#     for student in "$ass"/*; do
+#         if basename "$student" | grep -qE '^z[0-9]{7}$'; then
+#             students=$((students + 1))
+#         fi
+#     done
+
+#     if ! [ "$students" = 0 ]; then
+#         no_assignments=1
+#     fi
+# done
+
+# if [ $no_assignments = 0 ]; then
+#     echo "no assignments"
+#     exit 0
+# fi
+
+# Get student and the submissions
+for ass in ".give"/*; do
+    students=0;
+    for student in "$ass"/*; do
+        if basename "$student" | grep -qE '^z[0-9]{7}$'; then
+            students=$((students + 1))
+        fi
+    done
+    echo "assignment $(basename "$ass"): submissions from $students students"
+done

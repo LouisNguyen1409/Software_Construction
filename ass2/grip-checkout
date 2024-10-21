@@ -1,0 +1,158 @@
+#!/usr/bin/env python3
+
+import os
+import sys
+import json
+import shutil
+import filecmp
+
+# Check if .grip directory exists
+if not os.path.isdir('.grip'):
+    print("grip-checkout: error: grip repository directory .grip not found", file=sys.stderr)
+    sys.exit(1)
+
+# Check if the number of arguments is correct
+if len(sys.argv) != 2:
+	print("usage: grip-checkout <branch>", file=sys.stderr)
+	sys.exit(1)
+
+# Check if the branch exists
+target_branch = sys.argv[1]
+if not os.path.isdir(os.path.join('.grip', 'branches', target_branch)):
+	print(f"grip-checkout: error: unknown branch '{target_branch}'", file=sys.stderr)
+	sys.exit(1)
+
+# Load the status
+status = {}
+status_path = os.path.join('.grip', 'status.json')
+if os.path.exists(status_path):
+	with open(status_path, 'r') as f:
+		status = json.load(f)
+
+# Get the current branch last commit and the target branch last commit
+current_branch = status['branch']
+target_commit_path = os.path.join('.grip', 'branches', target_branch, 'commits')
+subdirs = sorted([d for d in os.listdir(target_commit_path) if os.path.isdir(os.path.join(target_commit_path, d))])
+target_commit = subdirs[-1]
+target_commit_path = os.path.join(target_commit_path, target_commit)
+
+current_commit_path = os.path.join('.grip', 'commits')
+subdirs = sorted([d for d in os.listdir(current_commit_path) if os.path.isdir(os.path.join(current_commit_path, d))])
+current_commit = subdirs[-1]
+current_commit_path = os.path.join(current_commit_path, current_commit)
+
+# Check if the current commit is the same as the target commit
+same_commit = False
+for target_file in os.listdir(target_commit_path):
+	if target_file == 'message':
+		continue
+
+	if target_file not in os.listdir(current_commit_path):
+		same_commit = False
+		break
+
+	if not filecmp.cmp(os.path.join(current_commit_path, target_file), os.path.join(target_commit_path, target_file)):
+		same_commit = False
+		break
+
+	same_commit = True
+
+# Check if the files have been changed
+file_changed = False
+filename = ''
+for file in os.listdir('.'):
+	if file == '.grip':
+		continue
+
+	try:
+		if status[file] != 'same as repo':
+			file_changed = True
+			filename = file
+			break
+	except KeyError:
+		pass
+
+	if file not in os.listdir(os.path.join('.grip', 'commits', str(current_commit))):
+		file_changed = True
+		filename = file
+		break
+
+	if file in os.listdir(os.path.join('.grip', 'commits', str(current_commit))) and not filecmp.cmp(file, os.path.join('.grip', 'commits', str(current_commit), file)):
+		file_changed = True
+		filename = file
+		break
+
+# Case1: commit1 == commit2 no staged change, no file change -> checkout -> use target
+# Case2: commit1 == commit2 file changed -> checkout -> keep file changes
+# Case3: commit1 != commit2 no staged change, no file change -> checkout -> use target
+# Case4: commit1 != commit2 staged/file change, error
+case = 1
+if same_commit and not file_changed:
+	case = 1
+elif same_commit and file_changed:
+	case = 2
+elif not same_commit and not file_changed:
+	case = 3
+elif not same_commit and file_changed:
+	case = 4
+
+if case == 1 or case == 3:
+	# Update current branch
+	index_branch = os.path.join('.grip/branches', current_branch, 'index')
+	commits_branch = os.path.join('.grip/branches', current_branch, 'commits')
+	shutil.rmtree(index_branch)
+	shutil.rmtree(commits_branch)
+	os.remove(os.path.join('.grip/branches', current_branch, 'status.json'))
+	os.makedirs(index_branch)
+	os.makedirs(commits_branch)
+	shutil.copytree('.grip/commits', commits_branch, dirs_exist_ok=True)
+	shutil.copytree('.grip/index', index_branch, dirs_exist_ok=True)
+	shutil.copy2('.grip/status.json', os.path.join('.grip/branches', current_branch))
+
+	# Copy the target branch to the current branch
+	index_branch = os.path.join('.grip/branches', target_branch, 'index')
+	commits_branch = os.path.join('.grip/branches', target_branch, 'commits')
+	shutil.rmtree('.grip/commits')
+	shutil.rmtree('.grip/index')
+	os.remove('.grip/status.json')
+	os.makedirs('.grip/commits')
+	os.makedirs('.grip/index')
+	shutil.copytree(commits_branch, '.grip/commits', dirs_exist_ok=True)
+	shutil.copytree(index_branch, '.grip/index', dirs_exist_ok=True)
+	shutil.copy2(os.path.join('.grip/branches', target_branch, 'status.json'), '.grip')
+
+	# Remove the files in the current directory
+	for files in os.listdir('.'):
+		if files == '.grip':
+			continue
+
+		try :
+			status[files]
+		except KeyError:
+			continue
+		os.remove(files)
+
+	# Copy the files from the target commit to the current directory
+	current_commit_path = os.path.join('.grip', 'commits')
+	subdirs = sorted([d for d in os.listdir(current_commit_path) if os.path.isdir(os.path.join(current_commit_path, d))])
+	current_commit = subdirs[-1]
+	current_commit_path = os.path.join(current_commit_path, current_commit)
+
+	for files in os.listdir(current_commit_path):
+		if files == 'message':
+			continue
+
+		if files not in os.listdir('.'):
+			shutil.copy2(os.path.join(current_commit_path, files), '.')
+
+	status['branch'] = target_branch
+	print(f"Switched to branch '{target_branch}'")
+elif case == 2:
+	print("Case 2")
+else:
+	# Case 4: error
+	print(f"grip-checkout: error: Your changes to the following files would be overwritten by checkout:\n{file}", file=sys.stderr)
+	sys.exit(1)
+
+with open(status_path, 'w') as f:
+	json.dump(status, f, indent=4)

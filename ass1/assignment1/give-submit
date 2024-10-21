@@ -1,0 +1,55 @@
+#!/bin/dash
+
+# Include helper functions file
+. ./helper_function
+
+# Check if give directory exists
+check_give "give-submit"
+
+# Check if the number of arguments is correct
+check_args "$#" 3 "give-submit"
+
+
+## Check assignment parameter
+assignment=$1
+# Check if assignment name is valid
+check_assignment "$assignment" "give-submit"
+
+## Check zid parameter
+zid=$2
+# Check if zid is valid
+check_zid "$zid" "give-submit"
+
+# Check if assignment exists
+check_assignment_found "$assignment" "give-submit"
+
+## Check filename parameter
+filename=$3
+# Check if filename is valid
+check_file_name "$filename" "give-submit"
+# Check if file exists
+check_file "$filename" "give-submit"
+
+# Check if the student has already submitted the assignment
+if [ ! -e ".give/$assignment/$zid" ]; then
+    mkdir ".give/$assignment/$zid"
+fi
+
+# Create a new submission directory
+num_submit=1
+submission=".give/$assignment/$zid/$num_submit"
+while [ -e "$submission" ]; do
+    num_submit=$((num_submit + 1))
+    submission=".give/$assignment/$zid/$num_submit"
+done
+mkdir "$submission"
+
+
+size=$(wc -c "$filename" | cut -d' ' -f1,1)
+time=$(date +"%a %b %e %T %Y" | sed 's/ AEST//')
+
+# Copy the file to the submission directory
+cp -p "$filename" "$submission/$filename"
+
+echo "$time" > "$submission/@TIMESTAMP"
+echo "Submission accepted - submission $num_submit: $filename $size bytes @ $time"

@@ -1,0 +1,82 @@
+#!/usr/bin/env python3
+
+import os
+import sys
+import re
+import shutil
+import filecmp
+import json
+
+# Check if the .grip directory exists
+if not os.path.isdir('.grip'):
+    print("grip-add: error: grip repository directory .grip not found", file=sys.stderr)
+    sys.exit(1)
+
+# Check if enough arguments are provided
+if len(sys.argv) < 2:
+	print("usage: grip-add <filenames>", file=sys.stderr)
+	sys.exit(1)
+
+# Set the commit flag
+commit = sys.argv[1] == '-a'
+start_index = 2 if commit else 1
+
+for filename in sys.argv[start_index:]:
+	# Check if the filename is valid
+	if not re.match(r'^[a-zA-Z0-9][a-zA-Z0-9._-]*$', filename):
+		print(f"grip-add: error: invalid filename '{filename}'", file=sys.stderr)
+		sys.exit(1)
+
+	index_dir = os.path.join('.grip', 'index')
+	file_path = os.path.join(index_dir, filename)
+	commits_dir = os.path.join('.grip', 'commits')
+	repo_path = ""
+
+	# Get the last commit
+	if len(os.listdir(commits_dir)) != 0:
+		subdirs = sorted([d for d in os.listdir(commits_dir) if os.path.isdir(os.path.join(commits_dir, d))])
+		last_commit = subdirs[-1]
+		repo_path = os.path.join('.grip', 'commits', str(last_commit), filename)
+
+	# Load the status file
+	status = {}
+	status_path = os.path.join('.grip', 'status.json')
+	if os.path.exists(status_path):
+		with open(status_path, 'r') as f:
+			status = json.load(f)
+
+	# Check if the file exists
+	if not os.path.isfile(filename) or os.path.dirname(filename):
+		if os.path.exists(file_path):
+			pass
+		else:
+			print(f"grip-add: error: can not open '{filename}'", file=sys.stderr)
+			sys.exit(1)
+
+	if os.path.exists(file_path):
+		# File is been removed
+		if not os.path.isfile(filename):
+			os.remove(file_path)
+			status[filename] = 'file deleted'
+		else:
+			if repo_path == "" or not os.path.exists(repo_path):
+				# Check the content of the file with index
+				content_same = filecmp.cmp(filename, file_path, shallow=False)
+				if not content_same:
+					status[filename] = 'changes staged for commit'
+					shutil.copy2(filename, os.path.join(index_dir, filename))
+			else:
+				# Check the content of the file with the last commit
+				content_same = filecmp.cmp(filename, repo_path, shallow=False)
+				if not content_same:
+					status[filename] = 'changes staged for commit'
+					shutil.copy2(filename, os.path.join(index_dir, filename))
+				else:
+					status[filename] = 'same as repo'
+	else:
+		shutil.copy2(filename, file_path)
+		status[filename] = 'added to index'
+
+	with open(status_path, 'w') as f:
+		json.dump(status, f, indent=4)
+

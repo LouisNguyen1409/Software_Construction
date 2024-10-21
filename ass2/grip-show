@@ -1,0 +1,37 @@
+#!/usr/bin/env python3
+
+import os
+import sys
+
+# Check if the .grip directory exists
+if not os.path.isdir('.grip'):
+    print("grip-show: error: grip repository directory .grip not found", file=sys.stderr)
+    sys.exit(1)
+
+# Check if the correct number of arguments are provided
+if len(sys.argv) != 2 or ':' not in sys.argv[1]:
+    print("usage: grip-show <commit>:<filename>", file=sys.stderr)
+    sys.exit(1)
+
+commit, filename = sys.argv[1].split(':')
+
+# If the commit provided
+if commit:
+	file_path = os.path.join('.grip', 'commits', commit)
+	if not os.path.isdir(file_path):
+		print(f"grip-show: error: unknown commit '{commit}'", file=sys.stderr)
+		sys.exit(1)
+	file_path = os.path.join(file_path, filename)
+else:
+    file_path = os.path.join('.grip', 'index', filename)
+
+# Check if the file exists
+if not os.path.isfile(file_path):
+    if commit:
+        print(f"grip-show: error: '{filename}' not found in commit {commit}", file=sys.stderr)
+    else:
+        print(f"grip-show: error: '{filename}' not found in index", file=sys.stderr)
+    sys.exit(1)
+
+with open(file_path, 'r') as file:
+	print(file.read(), end='')

@@ -1,0 +1,24 @@
+#!/bin/dash
+
+# Include helper functions file
+. ./helper_function
+
+# Check if give directory exists
+check_give "give-rm"
+
+# Check if the number of arguments provided are correct
+check_args $# 1 "give-rm"
+
+## Check assignment parameter
+assignment="$1"
+# Check if assignment follow the correct format
+check_assignment "$assignment" "give-rm"
+
+# Check if the assignment exists
+check_assignment_found "$assignment" "give-rm"
+
+#remove the assignment folder
+cd ".give" || exit 0
+rm -rf "$assignment"
+
+echo "assignment $assignment removed"

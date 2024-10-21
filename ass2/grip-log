@@ -1,0 +1,28 @@
+#!/usr/bin/env python3
+
+import os
+import sys
+
+# Check if the .grip directory exists
+if not os.path.isdir('.grip'):
+    print("grip-log: error: grip repository directory .grip not found", file=sys.stderr)
+    sys.exit(1)
+
+# Check if the user has provided any arguments
+if len(sys.argv) != 1:
+    print("usage: grip-log", file=sys.stderr)
+    sys.exit(1)
+
+# Check if the commits directory exists
+commits_dir = os.path.join('.grip', 'commits')
+if not os.path.isdir(commits_dir):
+    sys.exit(1)
+
+# List the commits in reverse order
+commit_dirs = sorted([d for d in os.listdir(commits_dir) if d.isdigit()], reverse=True)
+for commit_num in commit_dirs:
+    commit_dir = os.path.join(commits_dir, commit_num)
+    message_file = os.path.join(commit_dir, 'message')
+    with open(message_file, 'r') as f:
+        message = f.read().strip()
+        print(f"{commit_num} {message}")

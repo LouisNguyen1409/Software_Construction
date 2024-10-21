@@ -1,0 +1,6 @@
+#!/bin/dash
+
+hello() {
+	echo "Hello, world!s"
+    exit 1
+}

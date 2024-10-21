@@ -1,0 +1,85 @@
+#!/bin/dash
+
+# Include helper functions file
+. ./helper_function
+
+# Check if give directory exists
+check_give "give-fetch"
+
+# Check if the number of arguments is correct
+if [ $# -ne 2 ] && [ $# -ne  3 ]; then
+    echo "usage: give-fetch <assignment> <zid> [n]" 1>&2
+    exit 1
+fi
+
+# Check if number of submissions exists
+num_submission=""
+if [ $# -eq 3 ]; then
+    num_submission="$3"
+    if ! echo "$num_submission" | grep -Eq '^-?[0-9]*$'; then
+        echo "usage: give-fetch <assignment> <zid> [n]" 1>&2
+        exit 1
+    fi
+fi
+
+## Check assignment parameter
+assignment="$1"
+# Check if assignment follow the correct format
+check_assignment "$assignment" "give-fetch"
+
+## Check zid parameter
+zid="$2"
+# Check if zid follow the correct format
+check_zid "$zid" "give-fetch"
+
+# Check if assignment exists
+check_assignment_found "$assignment" "give-fetch"
+
+# Check if submission exists
+if [ "$num_submission" = "" ]; then
+    if [ ! -e ".give/$assignment/$zid" ]; then
+        echo "give-fetch: submission None not found for $assignment" 1>&2
+        exit 1
+    fi
+else
+    if [ ! -e ".give/$assignment/$zid" ]; then
+        echo "give-fetch: submission $num_submission not found for $assignment" 1>&2
+        exit 1
+    fi
+fi
+
+# Find the final submission
+num_submit=1
+submission=".give/$assignment/$zid/$num_submit"
+while [ -e "$submission" ]; do
+    num_submit=$((num_submit + 1))
+    submission=".give/$assignment/$zid/$num_submit"
+done
+final_submission=$((num_submit - 1))
+
+
+if [ $# = 2 ]; then
+    # Fetch the final submission
+    cat_submission "$assignment" "$zid" "$final_submission"
+else
+    if [ "$num_submission" -gt 0 ]; then
+        if [ "$num_submission" -gt "$final_submission" ]; then
+            # If the submission number is greater than the final submission
+            echo "give-fetch: submission $num_submission not found for $assignment" 1>&2
+            exit 1
+        else
+            # Fetch the submission
+            cat_submission "$assignment" "$zid" "$num_submission"
+        fi
+    else
+        final_submission=$((final_submission + num_submission))
+        if [ "$final_submission" -lt 1 ]; then
+            # If the submission number is less than 1
+            echo "give-fetch: submission $num_submission not found for $assignment" 1>&2
+            exit 1
+        else
+            # Fetch the submission
+            cat_submission "$assignment" "$zid" "$final_submission"
+        fi
+    fi
+fi

@@ -1,0 +1,68 @@
+#!/bin/dash
+
+# Include helper functions file
+. ./helper_function
+
+# Check if give directory exists
+check_give "give-status"
+
+# Check if the number of arguments provided is correct
+check_args $# 1 "give-status"
+
+## Check zid parameter
+zid="$1"
+# Check if zid is valid
+check_zid "$zid" "give-status"
+
+# Check if the submission exists
+num_ass=0;
+for ass in ".give"/*; do
+    for student in "$ass"/*; do
+        student=$(basename "$student")
+        if [ "$student" = "$zid" ];then
+            num_ass=$((num_ass + 1))
+        fi
+    done
+done
+
+if [ $num_ass -eq 0 ]; then
+    echo "no submissions for $zid"
+    exit 0
+fi
+
+
+for ass_dir in ".give"/*; do
+    num_submission=0;
+
+    for student_dir in "$ass_dir"/*; do
+        student=$(basename "$student_dir")
+        if [ "$student" = "$zid" ]; then
+            # shellcheck disable=SC2034
+            for dir in "$ass_dir/$zid"/*; do
+                num_submission=$((num_submission + 1))
+            done
+        fi
+    done
+
+    ass=$(basename "$ass_dir")
+    if [ $num_submission -ne 0 ]; then
+        echo "* $num_submission submissions for $ass"
+        # Get submission for the zid
+        for submission in "$ass_dir/$zid"/*; do
+            submission_num=$(basename "$submission")
+            # Get file for the submission
+            for file_dir in "$submission"/*; do
+                file_name=$(basename "$file_dir")
+                if [ "$file_name" != "@TIMESTAMP" ]; then
+                    solution_file="$file_name"
+                    # Get size
+                    size=$(wc -c "$file_dir" | cut -d' ' -f1,1)
+                else
+                    # Get time
+                    time=$(cat "$file_dir")
+                fi
+            done
+            echo "submission $submission_num: $solution_file $size bytes @ $time"
+        done
+    fi
+done

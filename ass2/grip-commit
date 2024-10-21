@@ -1,0 +1,82 @@
+#!/usr/bin/env python3
+
+import os
+import sys
+import shutil
+import json
+import filecmp
+
+# Check commit type
+auto_commit = False
+if len(sys.argv) == 4 and sys.argv[1] == '-a' and sys.argv[2] == '-m':
+    auto_commit = True
+    message = sys.argv[3]
+elif len(sys.argv) == 3 and sys.argv[1] == '-m':
+    message = sys.argv[2]
+else:
+    print("usage: grip-commit [-a] -m commit-message", file=sys.stderr)
+    sys.exit(1)
+
+# Check if grip repository exists
+if not os.path.isdir('.grip'):
+    print("grip-commit: error: grip repository directory .grip not found", file=sys.stderr)
+    sys.exit(1)
+
+commits_dir = os.path.join('.grip', 'commits')
+
+# Load status
+status = {}
+status_path = os.path.join('.grip', 'status.json')
+if os.path.exists(status_path):
+    with open(status_path, 'r') as f:
+        status = json.load(f)
+
+commit_number = status['commit_number']
+index_dir = os.path.join('.grip', 'index')
+
+# If commit has -a flag
+if auto_commit:
+    for filename in os.listdir('.'):
+        if os.path.isfile(filename) and filename in os.listdir(index_dir):
+            index_path = os.path.join(index_dir, filename)
+            if not filecmp.cmp(filename, index_path, shallow=False):
+                shutil.copy2(filename, index_path)
+                status[filename] = 'changes staged for commit'
+
+allow_commit = ['added to index', 'changes staged for commit', 'deleted from index', 'file deleted']
+is_commit = False
+commit_dir = os.path.join(commits_dir, str(commit_number))
+for filename, state in status.items():
+    if state not in allow_commit:
+        continue
+
+    is_commit = True
+    # Create commit directory
+    if not os.path.exists(commit_dir):
+        os.mkdir(commit_dir)
+        # Copy files from previous commit
+        if len(os.listdir(commits_dir)) != 1:
+            subdirs = sorted([d for d in os.listdir(commits_dir) if os.path.isdir(os.path.join(commits_dir, d))])
+            for oldfiles in os.listdir(os.path.join(commits_dir, subdirs[-2])):
+                if oldfiles == 'message':
+                    continue
+                if status[oldfiles] == 'deleted from index' or status[oldfiles] == 'file deleted':
+                    continue
+                shutil.copy2(os.path.join(commits_dir, subdirs[-2], oldfiles), commit_dir)
+
+    # Copy files to commit directory
+    if state == 'added to index' or state == 'changes staged for commit':
+        shutil.copy2(os.path.join(index_dir, filename), commit_dir)
+    status[filename] = 'same as repo'
+
+# Write commit message
+if not is_commit:
+    print("nothing to commit")
+else:
+    with open(os.path.join(commit_dir, 'message'), 'w') as message_file:
+        message_file.write(message)
+    print(f"Committed as commit {status['commit_number']}")
+
+    status['commit_number'] += 1
+    with open(status_path, 'w') as f:
+        json.dump(status, f, indent=4)

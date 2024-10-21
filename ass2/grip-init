@@ -1,0 +1,53 @@
+#!/usr/bin/env python3
+
+import os
+import sys
+import json
+directory = ".grip"
+
+# Check if the user has provided any arguments
+if len(sys.argv) != 1:
+	print("usage: grip-init", file=sys.stderr)
+	sys.exit(1)
+
+# Check if the directory already exists
+if os.path.exists(directory):
+	print("grip-init: error: .grip already exists", file=sys.stderr)
+	sys.exit(1)
+
+# Create the .grip directory
+try:
+	os.mkdir(directory)
+	print(f"Initialized empty grip repository in {directory}")
+except OSError as e:
+	print(f"grip-init: error: {e}", file=sys.stderr)
+	sys.exit(1)
+
+# Create the status.json file
+status = {"branch": "trunk", "commit_number": 0}
+status_path = os.path.join('.grip', 'status.json')
+with open(status_path, 'w') as f:
+	json.dump(status, f, indent=4)
+
+# Create the index, commits, and trunk directories
+index_dir = os.path.join('.grip', 'index')
+os.makedirs(index_dir)
+
+commits_dir = os.path.join('.grip', 'commits')
+os.makedirs(commits_dir)
+
+branch_dir = os.path.join('.grip', 'branches')
+os.makedirs(branch_dir)
+
+trunk_dir = os.path.join('.grip', 'branches', 'trunk')
+os.makedirs(trunk_dir)
+
+index_branch = os.path.join(trunk_dir, 'index')
+os.makedirs(index_branch)
+
+commits_branch = os.path.join(trunk_dir, 'commits')
+os.makedirs(commits_branch)
+
+status_branch = os.path.join(trunk_dir, 'status.json')
+with open(status_branch, 'w') as f:
+	json.dump(status, f, indent=4)

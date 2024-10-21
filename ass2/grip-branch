@@ -1,0 +1,61 @@
+#!/usr/bin/env python3
+
+import sys
+import os
+import shutil
+
+# Check if .grip directory exists
+if not os.path.isdir('.grip'):
+    print("grip-branch: error: grip repository directory .grip not found", file=sys.stderr)
+    sys.exit(1)
+
+# Get the action
+action = ""
+if len(sys.argv) == 1:
+    action = "list"
+elif len(sys.argv) == 2:
+	action = "create"
+elif len (sys.argv) == 3:
+	action = "delete"
+else:
+	print("usage: grip-branch [-d] <branch>", file=sys.stderr)
+	sys.exit(1)
+
+# Check if the first commit has been made
+if not os.path.isdir('.grip/commits/0'):
+	print("grip-branch: error: this command can not be run until after the first commit", file=sys.stderr)
+	sys.exit(1)
+
+if action == "list":
+	# List all branches
+	branches = sorted(os.listdir('.grip/branches'))
+	for branch in branches:
+		print(branch)
+elif action == "create":
+	# Create a new branch
+	branch = sys.argv[1]
+	if os.path.exists('.grip/branches/' + branch):
+		print(f"grip-branch: error: branch '{branch}' already exists", file=sys.stderr)
+		sys.exit(1)
+
+	branch_path = os.path.join('.grip/branches', branch)
+	os.mkdir(branch_path)
+	index_branch = os.path.join(branch_path, 'index')
+	os.makedirs(index_branch)
+	commits_branch = os.path.join(branch_path, 'commits')
+	os.makedirs(commits_branch)
+
+	shutil.copytree('.grip/commits', commits_branch, dirs_exist_ok=True)
+	shutil.copytree('.grip/index', index_branch, dirs_exist_ok=True)
+	shutil.copy2('.grip/status.json', branch_path)
+elif action == "delete":
+	# Delete a branch
+	branch = sys.argv[2]
+	if branch == "trunk":
+		print("grip-branch: error: can not delete branch 'trunk': default branch", file=sys.stderr)
+		sys.exit(1)
+	if not os.path.exists('.grip/branches/' + branch):
+		print(f"grip-branch: error: branch '{branch}' doesn't exist", file=sys.stderr)
+		sys.exit(1)
+	shutil.rmtree('.grip/branches/' + branch)
+	print(f"Deleted branch '{branch}'")

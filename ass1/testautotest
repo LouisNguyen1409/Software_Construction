@@ -1,0 +1,26 @@
+#!/bin/dash
+# Sample Autotest File
+# Each line contains a test case with 4 columns separated by '|'
+# Format: test_label|arguments|stdin|options
+# Isdnore_case|0|invalidinput|cs
+ignore_case|||c
+# Test case 1: Simple test with no arguments or stdin, and no special options
+test1|||bcdw
+
+# Test case 2: Test with arguments and no stdin, and no special options
+test2|arg1 arg2||
+
+# Test case 3: Test with stdin and no arguments, and ignore case option
+test3||Hello World|c
+
+# Test case 4: Test with both arguments and stdin, and ignore whitespace option
+test4|arg1|input text|w
+
+# Test case 5: Test with newline in stdin
+test5||line1\nline2|
+
+# Test case with all options enabled
+test6|arg1 arg2|Hello World\nNext Line|bcdw
+
+# Commented out test case (this line is ignored)
+#test7|arg1|input|b
